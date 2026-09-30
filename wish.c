@@ -68,19 +68,60 @@ void run_command(char *args[]) {
     }
 }
 
+void do_path(char *args[], int count) {
+    for (int i = 0; i < path_count; i++) {
+        free(path_dirs[i]);
+    }
+    path_count = 0;
+
+    for (int i = 1; i < count; i++) {
+        if (path_count < MAX_PATHS) {
+            path_dirs[path_count] = strdup(args[i]);
+            path_count++;
+        }
+    }
+}
+
+void do_cd(char *args[], int count) {
+    if (count != 2) {
+        print_error();
+        return;
+    }
+    if (chdir(args[1]) != 0) {
+        print_error();
+    }
+}
+
 int main(int argc, char *argv[]) {
     char *line = NULL;
     size_t len = 0;
     char *args[MAX_ARGS];
+    FILE *input = stdin;
+    int interactive = 1;
 
-    path_dirs[0] = "/bin";
+    if (argc > 2) {
+        print_error();
+        exit(1);
+    }
+    if (argc == 2) {
+        input = fopen(argv[1], "r");
+        if (input == NULL) {
+            print_error();
+            exit(1);
+        }
+        interactive = 0; 
+    }
+
+    path_dirs[0] = strdup("/bin");
     path_count = 1;
 
     while (1) {
-        printf("wish> ");
-        fflush(stdout);
+        if (interactive) {
+            printf("wish> ");
+            fflush(stdout);
+        }
 
-        ssize_t nread = getline(&line, &len, stdin);
+        ssize_t nread = getline(&line, &len, input);
         if (nread == -1) {
             free(line);
             exit(0);
@@ -97,11 +138,19 @@ int main(int argc, char *argv[]) {
         }
 
         if (strcmp(args[0], "exit") == 0) {
-            free(line);
-            exit(0);
+            if (count != 1) {
+                print_error();
+            } else {
+                free(line);
+                exit(0);
+            }
+        } else if (strcmp(args[0], "cd") == 0) {
+            do_cd(args, count);
+        } else if (strcmp(args[0], "path") == 0) {
+            do_path(args, count);
+        } else {
+            run_command(args);
         }
-
-        run_command(args);
     }
 
     return 0;

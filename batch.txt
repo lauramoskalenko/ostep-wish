@@ -1,0 +1,7 @@
+ls
+cd /tmp
+pwd
+path
+ls
+path /bin
+ls
