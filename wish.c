@@ -66,7 +66,10 @@ pid_t run_command(char *args[], char *outfile) {
             int fd = open(outfile, O_WRONLY | O_CREAT | O_TRUNC, 0644);
             if (fd < 0) {
                 print_error();
-                exit(1);
+                            if (fd < 0) {
+                print_error();
+                _exit(1);
+            }
             }
             dup2(fd, STDOUT_FILENO); 
             dup2(fd, STDERR_FILENO);
@@ -74,7 +77,9 @@ pid_t run_command(char *args[], char *outfile) {
         }
         execv(full_path, args);
         print_error();
-        exit(1);
+                execv(full_path, args);
+        print_error();
+        _exit(1);
     }
 
     return pid;
