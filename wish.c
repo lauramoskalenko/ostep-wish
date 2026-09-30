@@ -2,8 +2,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 #define MAX_ARGS 64
+#define MAX_PATHS 64
+
+char *path_dirs[MAX_PATHS];
+int path_count = 0;
 
 void print_error() {
     char error_message[30] = "An error has occurred\n";
@@ -28,10 +34,47 @@ int parse_line(char *line, char *args[]) {
     return count;
 }
 
+int find_executable(char *cmd, char *result, size_t size) {
+    for (int i = 0; i < path_count; i++) {
+        snprintf(result, size, "%s/%s", path_dirs[i], cmd);
+        if (access(result, X_OK) == 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+void run_command(char *args[]) {
+    char full_path[1024];
+
+    if (find_executable(args[0], full_path, sizeof(full_path)) == 0) {
+        print_error();
+        return;
+    }
+
+    pid_t pid = fork();
+    if (pid < 0) {
+        print_error();
+        return;
+    }
+
+    if (pid == 0) {
+        execv(full_path, args);
+        print_error();
+        exit(1);
+    } else {
+        int status;
+        waitpid(pid, &status, 0);
+    }
+}
+
 int main(int argc, char *argv[]) {
     char *line = NULL;
     size_t len = 0;
     char *args[MAX_ARGS];
+
+    path_dirs[0] = "/bin";
+    path_count = 1;
 
     while (1) {
         printf("wish> ");
@@ -58,9 +101,7 @@ int main(int argc, char *argv[]) {
             exit(0);
         }
 
-        for (int i = 0; i < count; i++) {
-            printf("args[%d] = '%s'\n", i, args[i]);
-        }
+        run_command(args);
     }
 
     return 0;
