@@ -1,0 +1,14 @@
+total 72
+drwxr-xr-x 3 laura laura  4096 Sep 30 17:45 .
+drwxr-x--- 9 laura laura  4096 Sep 30 17:30 ..
+drwxr-xr-x 7 laura laura  4096 Sep 30 17:36 .git
+-rw-r--r-- 1 laura laura     5 Sep 30 17:17 .gitignore
+-rw-r--r-- 1 laura laura   100 Sep 30 17:17 Makefile
+-rw-r--r-- 1 laura laura    36 Sep 30 17:35 batch.txt
+-rw-r--r-- 1 laura laura    62 Sep 30 17:45 o1
+-rw-r--r-- 1 laura laura     0 Sep 30 17:45 o2
+-rw-r--r-- 1 laura laura    53 Sep 30 17:44 out.txt
+-rw-r--r-- 1 laura laura    47 Sep 30 17:43 out2.tx
+-rw-r--r-- 1 laura laura    56 Sep 30 17:43 out2.txt
+-rwxr-xr-x 1 laura laura 22944 Sep 30 17:42 wish
+-rw-r--r-- 1 laura laura  4576 Sep 30 17:42 wish.c

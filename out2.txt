@@ -1,0 +1,7 @@
+Makefile
+batch.txt
+out.txt
+out2.tx
+out2.txt
+wish
+wish.c

@@ -2,12 +2,15 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 
 #define MAX_ARGS 64
 #define MAX_PATHS 64
+#define MAX_CMDS 64
 
+// список папок, где ищем программы
 char *path_dirs[MAX_PATHS];
 int path_count = 0;
 
@@ -23,14 +26,14 @@ int parse_line(char *line, char *args[]) {
 
     while ((token = strsep(&rest, " \t")) != NULL) {
         if (token[0] == '\0') {
-            continue; 
+            continue;
         }
         if (count < MAX_ARGS - 1) {
             args[count] = token;
             count++;
         }
     }
-    args[count] = NULL; 
+    args[count] = NULL;
     return count;
 }
 
@@ -44,28 +47,37 @@ int find_executable(char *cmd, char *result, size_t size) {
     return 0;
 }
 
-void run_command(char *args[]) {
+pid_t run_command(char *args[], char *outfile) {
     char full_path[1024];
 
     if (find_executable(args[0], full_path, sizeof(full_path)) == 0) {
         print_error();
-        return;
+        return -1;
     }
 
     pid_t pid = fork();
     if (pid < 0) {
         print_error();
-        return;
+        return -1;
     }
 
     if (pid == 0) {
+        if (outfile != NULL) {
+            int fd = open(outfile, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+            if (fd < 0) {
+                print_error();
+                exit(1);
+            }
+            dup2(fd, STDOUT_FILENO); 
+            dup2(fd, STDERR_FILENO);
+            close(fd);
+        }
         execv(full_path, args);
         print_error();
         exit(1);
-    } else {
-        int status;
-        waitpid(pid, &status, 0);
     }
+
+    return pid;
 }
 
 void do_path(char *args[], int count) {
@@ -92,10 +104,61 @@ void do_cd(char *args[], int count) {
     }
 }
 
+void handle_command(char *cmd, char *line, pid_t pids[], int *npids) {
+    char *args[MAX_ARGS];
+    char *files[MAX_ARGS];
+    char *outfile = NULL;
+
+    char *gt = strchr(cmd, '>');
+    if (gt != NULL) {
+        *gt = '\0';
+        char *right = gt + 1;
+
+        if (strchr(right, '>') != NULL) {
+            print_error();
+            return;
+        }
+
+        int fcount = parse_line(right, files);
+        if (fcount != 1) {
+            print_error();
+            return;
+        }
+        outfile = files[0];
+    }
+
+    int count = parse_line(cmd, args);
+
+    if (count == 0) {
+        if (outfile != NULL) {
+            print_error();
+        }
+        return;
+    }
+
+    if (strcmp(args[0], "exit") == 0) {
+        if (count != 1) {
+            print_error();
+        } else {
+            free(line);
+            exit(0);
+        }
+    } else if (strcmp(args[0], "cd") == 0) {
+        do_cd(args, count);
+    } else if (strcmp(args[0], "path") == 0) {
+        do_path(args, count);
+    } else {
+        pid_t pid = run_command(args, outfile);
+        if (pid > 0 && *npids < MAX_CMDS) {
+            pids[*npids] = pid;
+            (*npids)++;
+        }
+    }
+}
+
 int main(int argc, char *argv[]) {
     char *line = NULL;
     size_t len = 0;
-    char *args[MAX_ARGS];
     FILE *input = stdin;
     int interactive = 1;
 
@@ -109,7 +172,7 @@ int main(int argc, char *argv[]) {
             print_error();
             exit(1);
         }
-        interactive = 0; 
+        interactive = 0;
     }
 
     path_dirs[0] = strdup("/bin");
@@ -131,25 +194,18 @@ int main(int argc, char *argv[]) {
             line[nread - 1] = '\0';
         }
 
-        int count = parse_line(line, args);
+        pid_t pids[MAX_CMDS];
+        int npids = 0;
 
-        if (count == 0) {
-            continue;
+        char *rest = line;
+        char *cmd;
+        while ((cmd = strsep(&rest, "&")) != NULL) {
+            handle_command(cmd, line, pids, &npids);
         }
 
-        if (strcmp(args[0], "exit") == 0) {
-            if (count != 1) {
-                print_error();
-            } else {
-                free(line);
-                exit(0);
-            }
-        } else if (strcmp(args[0], "cd") == 0) {
-            do_cd(args, count);
-        } else if (strcmp(args[0], "path") == 0) {
-            do_path(args, count);
-        } else {
-            run_command(args);
+        for (int i = 0; i < npids; i++) {
+            int status;
+            waitpid(pids[i], &status, 0);
         }
     }
 
